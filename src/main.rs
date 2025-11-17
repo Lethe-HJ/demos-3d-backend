@@ -9,6 +9,7 @@ use std::sync::Arc;
 use flate2::write::GzEncoder;
 use flate2::Compression;
 use byteorder::{LittleEndian, WriteBytesExt};
+use std::time::Instant;
 
 use parser_registry::ParserRegistry;
 use voxel_grid::VoxelGrid;
@@ -70,7 +71,9 @@ async fn get_voxel_grid(
 ) -> impl Responder {
     // 构建完整文件路径
     let file_path = format!("{}/{}", data.resource_dir, query.file);
-    
+
+    let t_total_start = Instant::now();
+
     // 查找匹配的解析器
     let parser = match data.parser_registry.find_parser_for_file(&file_path) {
         Some((p, _)) => p,
@@ -96,7 +99,8 @@ async fn get_voxel_grid(
         }
     };
 
-    // 解析文件
+    // 解析文件计时
+    let t_parse_start = Instant::now();
     let voxel_grid: VoxelGrid = match parser.parse_from_file(&file_path) {
         Ok(grid) => grid,
         Err(e) => {
@@ -108,8 +112,10 @@ async fn get_voxel_grid(
             }));
         }
     };
+    let parse_ms = t_parse_start.elapsed().as_millis();
 
-    // 创建压缩的二进制数据
+    // 压缩计时
+    let t_comp_start = Instant::now();
     let compressed_data = match create_compressed_voxel_data(
         voxel_grid.get_shape(),
         file_size,
@@ -123,11 +129,16 @@ async fn get_voxel_grid(
             }));
         }
     };
+    let comp_ms = t_comp_start.elapsed().as_millis();
+    let total_ms = t_total_start.elapsed().as_millis();
 
-    // 返回压缩的二进制数据
-    // 注意：不设置 Content-Encoding，因为前端 Worker 需要手动解压
+    // 返回压缩的二进制数据 + 耗时头
     HttpResponse::Ok()
         .content_type(ContentType::octet_stream())
+        .append_header(("X-Parse-Duration-ms", parse_ms.to_string()))
+        .append_header(("X-Compress-Duration-ms", comp_ms.to_string()))
+        .append_header(("X-Total-Duration-ms", total_ms.to_string()))
+        .append_header(("X-File-Size", file_size.to_string()))
         .body(compressed_data)
 }
 
@@ -146,7 +157,7 @@ async fn hello(data: web::Data<AppState>) -> impl Responder {
 async fn main() -> std::io::Result<()> {
     // 初始化解析器注册表
     let parser_registry = Arc::new(ParserRegistry::new());
-    let resource_dir = "resource".to_string();
+    let resource_dir = "test/resource".to_string();
 
     let supported_extensions = parser_registry.supported_extensions();
     println!("已注册的解析器:");
