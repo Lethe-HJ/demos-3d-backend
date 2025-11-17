@@ -1,0 +1,17 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "read",
+  "steps": [
+    {
+      "file": "src/main.rs",
+      "description": "这里的`::<LittleEndian>`是在指定泛型",
+      "line": 48
+    },
+    {
+      "file": "src/main.rs",
+      "description": "压缩不一定能加速, 只有在网络较差的情况下 压缩才能加速, 在网络较好的情况下, 不压缩更快\n另外分块才是加速请求的更好的方式",
+      "line": 39
+    }
+  ],
+  "ref": "ef7cf75f575c452ff4394ef99bce8adf7c17a8dd"
+}
