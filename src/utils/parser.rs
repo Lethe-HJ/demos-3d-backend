@@ -1,4 +1,4 @@
-use crate::voxel_grid::VoxelGrid;
+use crate::utils::voxel_grid::VoxelGrid;
 
 /// 体素网格解析器 trait
 /// 不同文件格式需要实现这个 trait

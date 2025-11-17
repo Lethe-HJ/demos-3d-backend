@@ -1,5 +1,5 @@
-use crate::parser::VoxelGridParser;
-use crate::voxel_grid::VoxelGrid;
+use crate::utils::parser::VoxelGridParser;
+use crate::utils::voxel_grid::VoxelGrid;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Error, ErrorKind};
 
@@ -54,7 +54,7 @@ impl VoxelGridParser for VaspParser {
 
         // 从第30行（索引29）开始解析数据
         let mut data = Vec::with_capacity(total_elements);
-        
+
         for line in lines.iter().skip(29) {
             // 解析每行的浮点数（可能有多个值，用空格分隔）
             for token in line.split_whitespace() {
@@ -72,7 +72,8 @@ impl VoxelGridParser for VaspParser {
         }
 
         // 创建体素网格
-        VoxelGrid::new(shape_array, data)
-            .map_err(|e| Box::new(Error::new(ErrorKind::InvalidData, e)) as Box<dyn std::error::Error>)
+        VoxelGrid::new(shape_array, data).map_err(|e| {
+            Box::new(Error::new(ErrorKind::InvalidData, e)) as Box<dyn std::error::Error>
+        })
     }
 }

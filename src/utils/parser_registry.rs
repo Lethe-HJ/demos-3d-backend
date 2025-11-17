@@ -1,4 +1,4 @@
-use crate::parser::VoxelGridParser;
+use crate::utils::parser::VoxelGridParser;
 
 /// 解析器注册表
 /// 管理所有可用的体素网格解析器，并根据文件扩展名匹配对应的解析器

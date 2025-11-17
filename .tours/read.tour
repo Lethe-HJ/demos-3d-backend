@@ -9,6 +9,11 @@
     },
     {
       "file": "src/main.rs",
+      "description": "实际数据主体通过二进制 body(compressed_data) 直接输出，减少 JSON 序列化的开销；而必要的元信息（例如解析、压缩时长以及文件大小）则分别放在 X-Parse-Duration-ms、X-Compress-Duration-ms、X-Total-Duration-ms、X-File-Size 等响应头中。这样一方面保持了传输体积小、吞吐快，另一方面也让客户端仍然能拿到诊断统计用的数据，可读性和性能两全。",
+      "line": 136
+    },
+    {
+      "file": "src/main.rs",
       "description": "压缩不一定能加速, 只有在网络较差的情况下 压缩才能加速, 在网络较好的情况下, 不压缩更快\n另外分块才是加速请求的更好的方式",
       "line": 39
     }
