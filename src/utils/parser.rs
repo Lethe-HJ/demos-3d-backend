@@ -16,6 +16,13 @@ pub trait VoxelGridParser: Send + Sync {
     /// 从文件路径解析体素网格数据
     fn parse_from_file(&self, file_path: &str) -> Result<VoxelGrid, Box<dyn std::error::Error>>;
 
+    /// 快速获取文件的 shape（只读取元数据，不解析完整数据）
+    /// 用于预处理阶段快速返回基本信息
+    fn get_shape_from_file(
+        &self,
+        file_path: &str,
+    ) -> Result<[usize; 3], Box<dyn std::error::Error>>;
+
     /// 获取解析器名称（用于日志和错误信息）
     fn name(&self) -> &'static str;
 }

@@ -21,6 +21,40 @@ impl VoxelGridParser for VaspParser {
         "VASP Parser"
     }
 
+    fn get_shape_from_file(
+        &self,
+        file_path: &str,
+    ) -> Result<[usize; 3], Box<dyn std::error::Error>> {
+        // 快速读取 shape：只读取前 29 行
+        let file = File::open(file_path)?;
+        let reader = BufReader::new(file);
+        let lines: Vec<String> = reader.lines().take(29).collect::<Result<_, _>>()?;
+
+        if lines.len() < 29 {
+            return Err(Box::new(Error::new(
+                ErrorKind::InvalidData,
+                "文件行数不足，无法读取shape信息",
+            )));
+        }
+
+        // 解析shape: "112  112  108"（第29行，索引28）
+        let shape_line = &lines[28];
+        let shape: Vec<usize> = shape_line
+            .split_whitespace()
+            .map(|s| s.parse::<usize>())
+            .collect::<Result<_, _>>()
+            .map_err(|e| Error::new(ErrorKind::InvalidData, format!("无法解析shape: {}", e)))?;
+
+        if shape.len() != 3 {
+            return Err(Box::new(Error::new(
+                ErrorKind::InvalidData,
+                format!("shape应该包含3个维度，但得到{}个", shape.len()),
+            )));
+        }
+
+        Ok([shape[0], shape[1], shape[2]])
+    }
+
     fn parse_from_file(&self, file_path: &str) -> Result<VoxelGrid, Box<dyn std::error::Error>> {
         let file = File::open(file_path)?;
         let reader = BufReader::new(file);
