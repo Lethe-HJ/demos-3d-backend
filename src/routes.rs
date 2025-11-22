@@ -7,5 +7,6 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
     cfg.service(handlers::hello)
         .service(handlers::get_voxel_grid)
         .service(handlers::preprocess_voxel_grid)
-        .service(handlers::get_voxel_chunk);
+        .service(handlers::get_voxel_chunk)
+        .service(handlers::get_performance);
 }

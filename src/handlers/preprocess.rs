@@ -4,12 +4,15 @@ use actix_web::{HttpResponse, Responder, post, web};
 use serde::{Deserialize, Serialize};
 
 use crate::app_state::AppState;
+use crate::performance::{get_thread_id, get_unix_timestamp_ms, PerformanceRecord};
 use crate::task::{ChunkDescriptor, TaskData};
 
 #[derive(Deserialize)]
 pub struct PreprocessRequest {
     pub file: String,
     pub chunk_size: usize,
+    #[serde(default)]
+    pub session_id: Option<String>,
 }
 
 #[derive(Serialize, Clone)]
@@ -28,7 +31,36 @@ pub async fn preprocess_voxel_grid(
     data: web::Data<AppState>,
     payload: web::Json<PreprocessRequest>,
 ) -> impl Responder {
-    match run_preprocess(data.get_ref(), &payload.file, payload.chunk_size) {
+    let session_id = payload.session_id.clone();
+    let start_time = get_unix_timestamp_ms();
+    let thread_id = get_thread_id();
+    let channel_index = format!("preprocess_{}", thread_id);
+
+    let result = run_preprocess(
+        data.get_ref(),
+        &payload.file,
+        payload.chunk_size,
+        session_id.clone(),
+    );
+
+    let end_time = get_unix_timestamp_ms();
+
+    // 记录性能数据
+    if let Some(ref sid) = session_id {
+        let record = PerformanceRecord {
+            start_time,
+            end_time,
+            channel_group: "rust后端".to_string(),
+            channel_index: channel_index.clone(),
+            msg: format!("预处理请求: {}", payload.file),
+        };
+        eprintln!("[性能数据记录] 预处理接口 - session_id: {}, channel_index: {}", sid, channel_index);
+        data.performance_store.add_record(sid, record);
+    } else {
+        eprintln!("[性能数据记录] 预处理接口 - session_id 为空，未记录性能数据");
+    }
+
+    match result {
         Ok(resp) => HttpResponse::Ok().json(resp),
         Err(err) => err,
     }
@@ -44,8 +76,6 @@ pub async fn preprocess_voxel_grid(
 /// 4. 创建任务存储（task_id）
 /// 5. 启动后台任务并行解析文件并分割成 chunk
 ///
-/// **注意**：min/max 不再在预处理中计算，由前端 worker 在解析各自 chunk 时计算并整合
-///
 /// ## 参数
 /// - `app_state`: 应用全局状态，包含解析器注册表、资源目录、任务存储等
 /// - `file`: 资源目录下的文件名（如 "CHGDIFF.vasp"）
@@ -58,6 +88,7 @@ pub fn run_preprocess(
     app_state: &AppState,
     file: &str,
     chunk_size: usize,
+    session_id: Option<String>,
 ) -> Result<PreprocessResponse, HttpResponse> {
     // ==================== 步骤 1: 参数验证与文件路径构建 ====================
     // 确保分块大小至少为 1，避免除零或无效分块
@@ -139,15 +170,19 @@ pub fn run_preprocess(
     let file_path_clone = file_path.clone();
     let chunks_clone = chunks.clone();
     let task_id_clone = task_id.clone();
+    let performance_store = app_state.performance_store.clone();
+    let session_id_clone = session_id.clone();
     
     actix_web::rt::spawn(async move {
-        let parse_start = Instant::now();
+        let parse_start = get_unix_timestamp_ms();
+        let parse_thread_id = get_thread_id();
+        let parse_channel_index = format!("parse_file_{}", parse_thread_id);
         
         // 步骤 7.1: 解析完整文件（顺序执行，因为文件格式是顺序的）
         let parser = match parser_registry.find_parser_for_file(&file_path_clone) {
             Some((p, _)) => p,
             None => {
-                eprintln!("[后台解析] 任务 {} 解析失败：找不到解析器", task_id_clone);
+                eprintln!("[后台解析] 任务 {task_id_clone} 解析失败：找不到解析器");
                 return;
             }
         };
@@ -155,32 +190,66 @@ pub fn run_preprocess(
         let voxel_grid = match parser.parse_from_file(&file_path_clone) {
             Ok(grid) => grid,
             Err(e) => {
-                eprintln!("[后台解析] 任务 {} 解析文件失败: {}", task_id_clone, e);
+                eprintln!("[后台解析] 任务 {task_id_clone} 解析文件失败: {e}");
                 return;
             }
         };
 
-        let parse_duration = parse_start.elapsed();
+        let parse_end = get_unix_timestamp_ms();
+        
+        // 记录文件解析性能数据
+        if let Some(ref sid) = session_id_clone {
+            let record = PerformanceRecord {
+                start_time: parse_start,
+                end_time: parse_end,
+                channel_group: "rust后端".to_string(),
+                channel_index: parse_channel_index.clone(),
+                msg: format!("后台解析文件: {}", task_id_clone),
+            };
+            eprintln!("[性能数据记录] 后台任务 - 解析文件 - session_id: {}, channel_index: {}", sid, parse_channel_index);
+            performance_store.add_record(sid, record);
+        }
+
         println!(
             "[后台解析] 任务 {} 文件解析完成，耗时 {:.2}ms",
             task_id_clone,
-            parse_duration.as_millis()
+            parse_end - parse_start
         );
 
         // 步骤 7.2: 并行分割成多个 chunk（可以并行执行）
         let data = voxel_grid.get_data();
-        let split_start = Instant::now();
+        let split_start = get_unix_timestamp_ms();
 
         // 使用多个后台任务并行分割和存储 chunk
         let mut handles = Vec::new();
-        for descriptor in chunks_clone {
+        for descriptor in chunks_clone.iter() {
             let task_ref = task_clone.clone();
+            let perf_store = performance_store.clone();
+            let sid = session_id_clone.clone();
             // 为每个 chunk 复制对应的数据切片（因为多个任务需要并发读取不同部分）
             let chunk_values: Vec<f64> = data[descriptor.start..descriptor.end].to_vec();
+            let chunk_index = descriptor.index;
+            let split_thread_id = get_thread_id();
+            let split_channel_index = format!("split_chunk_{}", split_thread_id);
 
             // 为每个 chunk 启动一个任务来存储数据
             let handle = actix_web::rt::spawn(async move {
-                task_ref.set_chunk(descriptor.index, chunk_values);
+                let chunk_start = get_unix_timestamp_ms();
+                task_ref.set_chunk(chunk_index, chunk_values);
+                let chunk_end = get_unix_timestamp_ms();
+                
+                // 记录分割 chunk 性能数据
+                if let Some(ref session_id) = sid {
+                    let record = PerformanceRecord {
+                        start_time: chunk_start,
+                        end_time: chunk_end,
+                        channel_group: "rust后端".to_string(),
+                        channel_index: split_channel_index.clone(),
+                        msg: format!("后台分割 Chunk {}", chunk_index),
+                    };
+                    eprintln!("[性能数据记录] 后台任务 - 分割Chunk - session_id: {}, channel_index: {}", session_id, split_channel_index);
+                    perf_store.add_record(session_id, record);
+                }
             });
             handles.push(handle);
         }
@@ -190,12 +259,12 @@ pub fn run_preprocess(
             let _ = handle.await;
         }
 
-        let split_duration = split_start.elapsed();
+        let split_end = get_unix_timestamp_ms();
         println!(
             "[后台解析] 任务 {} 分割完成，共 {} 个 chunk，耗时 {:.2}ms",
             task_id_clone,
             task_clone.chunks.len(),
-            split_duration.as_millis()
+            split_end - split_start
         );
     });
 

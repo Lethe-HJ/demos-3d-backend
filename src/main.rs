@@ -1,6 +1,7 @@
 mod app_state;
 mod handlers;
 mod parsers;
+mod performance;
 mod routes;
 mod task;
 mod utils;
@@ -9,6 +10,7 @@ use std::sync::Arc;
 
 use actix_web::{App, HttpServer, web};
 
+use crate::performance::PerformanceStore;
 use crate::utils::parser_registry::ParserRegistry;
 use app_state::AppState;
 use task::TaskStore;
@@ -22,14 +24,16 @@ async fn main() -> std::io::Result<()> {
     let supported_extensions = parser_registry.supported_extensions();
     println!("已注册的解析器:");
     for ext in &supported_extensions {
-        println!("  - .{}", ext);
+        println!("  - .{ext}");
     }
 
     let task_store = Arc::new(TaskStore::new());
+    let performance_store = Arc::new(PerformanceStore::new());
     let app_state = web::Data::new(AppState {
         parser_registry,
         resource_dir: resource_dir.clone(),
         task_store: task_store.clone(),
+        performance_store: performance_store.clone(),
     });
 
     // 启动后台清理任务：定期清理过期的任务
@@ -42,8 +46,7 @@ async fn main() -> std::io::Result<()> {
             let cleaned_count = cleanup_store.cleanup_expired();
             if cleaned_count > 0 {
                 println!(
-                    "[清理任务] 清理了 {} 个过期任务，当前剩余: {} 个任务",
-                    cleaned_count,
+                    "[清理任务] 清理了 {cleaned_count} 个过期任务，当前剩余: {} 个任务",
                     cleanup_store.task_count()
                 );
             }
@@ -51,12 +54,9 @@ async fn main() -> std::io::Result<()> {
     });
 
     println!("\n服务器启动在 http://127.0.0.1:8080");
-    println!("资源目录: {}", resource_dir);
+    println!("资源目录: {resource_dir}");
     println!("任务 TTL: {} 分钟", task_store.default_ttl().as_secs() / 60);
-    println!("\n可用接口:");
-    println!("  GET / - API 信息");
-    println!("  GET /voxel-grid?file=<filename>&chunk_size=<size> - 预处理体素网格数据");
-
+  
     HttpServer::new(move || {
         App::new()
             .app_data(app_state.clone())

@@ -3,6 +3,7 @@
 #[derive(Debug, Clone)]
 pub struct VoxelGrid {
     /// 网格维度 [nx, ny, nz]
+    #[allow(dead_code)]
     pub shape: [usize; 3],
     /// 数据数组，按 C 语言顺序存储 (x变化最快，y其次，z最慢)
     /// 索引计算: index = k * nx * ny + j * nx + i
@@ -32,6 +33,7 @@ impl VoxelGrid {
     }
 
     /// 获取 shape
+    #[allow(dead_code)]
     pub fn get_shape(&self) -> [usize; 3] {
         self.shape
     }

@@ -43,7 +43,7 @@ impl VoxelGridParser for VaspParser {
             .split_whitespace()
             .map(|s| s.parse::<usize>())
             .collect::<Result<_, _>>()
-            .map_err(|e| Error::new(ErrorKind::InvalidData, format!("无法解析shape: {}", e)))?;
+            .map_err(|e| Error::new(ErrorKind::InvalidData, format!("无法解析shape: {e}")))?;
 
         if shape.len() != 3 {
             return Err(Box::new(Error::new(
@@ -74,7 +74,7 @@ impl VoxelGridParser for VaspParser {
             .split_whitespace()
             .map(|s| s.parse::<usize>())
             .collect::<Result<_, _>>()
-            .map_err(|e| Error::new(ErrorKind::InvalidData, format!("无法解析shape: {}", e)))?;
+            .map_err(|e| Error::new(ErrorKind::InvalidData, format!("无法解析shape: {e}")))?;
 
         if shape.len() != 3 {
             return Err(Box::new(Error::new(
@@ -98,7 +98,7 @@ impl VoxelGridParser for VaspParser {
                     Err(_) => {
                         // 如果不是有效的浮点数，跳过（可能是行尾的空格或空行）
                         if !token.trim().is_empty() {
-                            eprintln!("警告: 无法解析值 '{}'，已跳过", token);
+                            eprintln!("警告: 无法解析值 '{token}'，已跳过");
                         }
                     }
                 }

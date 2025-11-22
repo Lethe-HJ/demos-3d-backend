@@ -19,6 +19,7 @@ pub struct ChunkDescriptor {
 /// 使用 HashMap 独立存储每个 chunk，允许单独释放
 pub struct TaskData {
     /// 网格维度 [nx, ny, nz]
+    #[allow(dead_code)]
     pub shape: [usize; 3],
     /// 分块描述列表
     pub chunks: Vec<ChunkDescriptor>,
@@ -29,6 +30,7 @@ pub struct TaskData {
     /// 任务创建时间，用于 TTL 过期检查
     pub created_at: Instant,
     /// 文件路径，用于后台解析
+    #[allow(dead_code)]
     pub file_path: String,
 }
 
@@ -79,11 +81,13 @@ impl TaskData {
     }
 
     /// 检查是否还有未请求的 chunk
+    #[allow(dead_code)]
     pub fn has_remaining_chunks(&self) -> bool {
         !self.chunk_data.read().is_empty()
     }
 
     /// 获取剩余的 chunk 数量
+    #[allow(dead_code)]
     pub fn remaining_chunk_count(&self) -> usize {
         self.chunk_data.read().len()
     }
@@ -104,6 +108,7 @@ impl TaskStore {
     }
 
     /// 创建带自定义 TTL 的 TaskStore
+    #[allow(dead_code)]
     pub fn with_ttl(ttl: Duration) -> Self {
         Self {
             tasks: RwLock::new(HashMap::new()),
@@ -137,6 +142,7 @@ impl TaskStore {
     }
 
     /// 清理所有任务（通常在服务关闭时调用）
+    #[allow(dead_code)]
     pub fn clear_all(&self) {
         self.tasks.write().clear();
     }

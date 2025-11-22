@@ -3,11 +3,14 @@ use byteorder::{LittleEndian, WriteBytesExt};
 use serde::Deserialize;
 
 use crate::app_state::AppState;
+use crate::performance::{get_thread_id, get_unix_timestamp_ms, PerformanceRecord};
 
 #[derive(Deserialize)]
 pub struct ChunkQuery {
     pub task_id: String,
     pub chunk_index: usize,
+    #[serde(default)]
+    pub session_id: Option<String>,
 }
 
 #[get("/voxel-grid/chunk")]
@@ -15,6 +18,10 @@ pub async fn get_voxel_chunk(
     data: web::Data<AppState>,
     query: web::Query<ChunkQuery>,
 ) -> impl Responder {
+    let start_time = get_unix_timestamp_ms();
+    let thread_id = get_thread_id();
+    let channel_index = format!("get_chunk_{}", thread_id);
+    
     let Some(task) = data.task_store.get(&query.task_id) else {
         return HttpResponse::BadRequest().json(serde_json::json!({
             "error": "无效的 task_id",
@@ -58,6 +65,23 @@ pub async fn get_voxel_chunk(
                 "details": e.to_string(),
             }));
         }
+    }
+
+    let end_time = get_unix_timestamp_ms();
+    
+    // 记录性能数据
+    if let Some(ref session_id) = query.session_id {
+        let record = PerformanceRecord {
+            start_time,
+            end_time,
+            channel_group: "rust后端".to_string(),
+            channel_index: channel_index.clone(),
+            msg: format!("获取 Chunk {}", query.chunk_index),
+        };
+        eprintln!("[性能数据记录] Chunk接口 - session_id: {}, channel_index: {}", session_id, channel_index);
+        data.performance_store.add_record(session_id, record);
+    } else {
+        eprintln!("[性能数据记录] Chunk接口 - session_id 为空，未记录性能数据");
     }
 
     HttpResponse::Ok()

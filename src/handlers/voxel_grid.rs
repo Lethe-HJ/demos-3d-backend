@@ -26,7 +26,7 @@ pub async fn get_voxel_grid(
         }));
     };
 
-    match run_preprocess(data.get_ref(), &query.file, chunk_size) {
+    match run_preprocess(data.get_ref(), &query.file, chunk_size, None) {
         Ok(resp) => HttpResponse::Ok().json(resp),
         Err(err) => err,
     }
