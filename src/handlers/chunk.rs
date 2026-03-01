@@ -74,7 +74,7 @@ pub async fn get_voxel_chunk(
         let record = PerformanceRecord {
             start_time,
             end_time,
-            channel_group: "rust后端".to_string(),
+            channel_group: "backend".to_string(),
             channel_index: channel_index.clone(),
             msg: format!("获取 Chunk {}", query.chunk_index),
         };

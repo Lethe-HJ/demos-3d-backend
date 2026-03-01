@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 
 /// 性能数据记录
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PerformanceRecord {
     /// 开始时间 (Unix 时间戳，毫秒)
     pub start_time: u64,

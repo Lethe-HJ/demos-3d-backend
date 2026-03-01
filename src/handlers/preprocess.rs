@@ -50,7 +50,7 @@ pub async fn preprocess_voxel_grid(
         let record = PerformanceRecord {
             start_time,
             end_time,
-            channel_group: "rust后端".to_string(),
+            channel_group: "backend".to_string(),
             channel_index: channel_index.clone(),
             msg: format!("预处理请求: {}", payload.file),
         };
@@ -202,7 +202,7 @@ pub fn run_preprocess(
             let record = PerformanceRecord {
                 start_time: parse_start,
                 end_time: parse_end,
-                channel_group: "rust后端".to_string(),
+                channel_group: "backend".to_string(),
                 channel_index: parse_channel_index.clone(),
                 msg: format!("后台解析文件: {}", task_id_clone),
             };
@@ -243,7 +243,7 @@ pub fn run_preprocess(
                     let record = PerformanceRecord {
                         start_time: chunk_start,
                         end_time: chunk_end,
-                        channel_group: "rust后端".to_string(),
+                        channel_group: "backend".to_string(),
                         channel_index: split_channel_index.clone(),
                         msg: format!("后台分割 Chunk {}", chunk_index),
                     };
